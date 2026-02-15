@@ -53,9 +53,6 @@ if not w3.is_connected():
 account = w3.eth.account.from_key(PRIVATE_KEY)
 contract = w3.eth.contract(address=w3.to_checksum_address(CONTRACT_ADDRESS), abi=CONTRACT_ABI)
 
-BUBBLE_ROOT = "https://betbud.live/api/1.1/obj"
-DATA_TYPE = "Events"
-
 CACHE_FILE = "recent_predictions.json"
 
 PREMIUM_ACCOUNTS = [
@@ -250,10 +247,12 @@ def create_market(duration_days):
         return None, None, None
 
 def register_bubble_event(proposal, market_num, creator_wallet, image_url):
-    url = f"{BUBBLE_ROOT}/{DATA_TYPE}"
+    # NEW: Using Bubble API workflow - NO hardcoded API key!
+    url = "https://betbud.live/api/1.1/wf/create-prediction-market"
+    
     headers = {
-        "Authorization": "Bearer eb14b9297060b03751dce5497d07a88f",
         "Content-Type": "application/json"
+        # NO Authorization header - API workflow is public!
     }
     
     valid_cats = ["Politics", "Elections", "Sport", "Gaming", "Crypto", "Price", "Tech", "People", "Personal", "music", "Pop", "other"]
@@ -261,34 +260,31 @@ def register_bubble_event(proposal, market_num, creator_wallet, image_url):
     if cat not in valid_cats:
         cat = "other"
     
+    # Match Bubble API workflow parameters EXACTLY
     data = {
-        "tittle": proposal.get("question", "No title"),
+        "question": proposal.get("question", "No title"),
         "rules": proposal.get("resolution_criteria", "No rules"),
-        "duration ( days ) ": proposal.get("duration_days", 7),
+        "duration": int(proposal.get("duration_days", 7)),
         "category": cat,
-        "walletID-event-creator": creator_wallet,
-        "Event number": market_num,
-        "closed?": False,
-        "overrided ? ": False,
-        "rewardClaimed?": False,
-        "privacy": "public",
-        "Reward amount": 0,
-        "final outcome": "",
-        "OUTCOME": "",
-        "event Preview URL ": image_url,
-        "image": image_url,
-        "isBot?": True
+        "wallet": creator_wallet,
+        "market_number": int(market_num),
+        "image_url": image_url,
+        "isBot?": "yes"  # Always yes since these are bot-created
     }
     
     try:
-        resp = requests.post(url, headers=headers, json=data)
+        resp = requests.post(url, headers=headers, json=data, timeout=10)
         resp.raise_for_status()
-        print("Bubble registered successfully:", resp.json())
+        result = resp.json()
+        print(f"Bubble registered successfully!")
+        print(f"Response: {result}")
+        return True
     except Exception as e:
         print(f"Bubble error: {str(e)}")
         if 'resp' in locals():
-            print("Status:", resp.status_code)
-            print("Response:", resp.text[:300])
+            print(f"Status: {resp.status_code}")
+            print(f"Response: {resp.text[:300]}")
+        return False
 
 def main():
     print("\n=== PRODUCTION PREDICTION MARKET CREATOR ===\n")
@@ -310,8 +306,12 @@ def main():
     market_num, tx_hash, explorer = create_market(proposal["duration_days"])
     
     if market_num:
-        register_bubble_event(proposal, market_num, account.address, image_url)
-        save_prediction(proposal["question"])
+        success = register_bubble_event(proposal, market_num, account.address, image_url)
+        if success:
+            save_prediction(proposal["question"])
+            print(f"\n✅ SUCCESS! Market #{market_num} created and registered to betbud.live!")
+        else:
+            print(f"\n⚠️ Market #{market_num} created on blockchain but Bubble registration failed")
 
 if __name__ == "__main__":
     try:
