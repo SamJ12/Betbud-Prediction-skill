@@ -117,7 +117,7 @@ Perfect for running 24/7 to keep your prediction market platform fresh with rele
 
 **4. GitHub Repository URL:**
 ```
-https://github.com/YOUR_USERNAME/YOUR_REPO_NAME
+https://github.com/SamJ12/Betbud-Prediction-skill/
 ```
 
 **5. Category:**
